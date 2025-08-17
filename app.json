@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "GPS Info",
+    "slug": "gps-info",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "sdkVersion": "53.0.0",
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs location access to display GPS information and compass heading.",
+        "NSLocationWhenInUseUsageDescription": "This app needs location access to display GPS information and compass heading.",
+        "NSLocationAlwaysUsageDescription": "This app needs location access to track GPS in the background.",
+        "NSMotionUsageDescription": "This app uses motion sensors for compass functionality."
+      }
+    },
+    "android": {
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "WAKE_LOCK",
+        "POST_NOTIFICATIONS",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    "web": {},
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow GPS Info to use your location to display GPS coordinates and compass heading.",
+          "locationAlwaysPermission": "Allow GPS Info to use your location in the background to continue tracking."
+        }
+      ],
+      "expo-task-manager"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "bfb2d230-c141-4ff1-83ea-61643152e408"
+      }
+    }
+  }
+}
