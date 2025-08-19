@@ -78,31 +78,60 @@ export class LocationService {
 
   async requestPermissions(): Promise<boolean> {
     try {
+      // Check if permissions are already granted first
+      const { status: existingStatus } = await Location.getForegroundPermissionsAsync();
+      if (existingStatus === 'granted') {
+        console.log('Location permissions already granted');
+        return true;
+      }
+
       // Request foreground location permission
       const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
       if (foregroundStatus !== 'granted') {
-        console.error('Foreground location permission not granted');
+        console.error('Foreground location permission not granted:', foregroundStatus);
         return false;
       }
 
-      // Request background location permission
-      const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-      if (backgroundStatus !== 'granted') {
-        console.warn('Background location permission not granted');
+      console.log('Foreground location permission granted');
+
+      // Try to request background location permission, but don't fail if it's not granted
+      try {
+        const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+        if (backgroundStatus !== 'granted') {
+          console.warn('Background location permission not granted:', backgroundStatus);
+        } else {
+          console.log('Background location permission granted');
+        }
+      } catch (bgError) {
+        console.warn('Background permission request failed:', bgError);
+        // Continue anyway - foreground permission is sufficient for basic functionality
       }
 
-      // Request notification permissions for Android
+      // Request notification permissions for Android (optional)
       if (Platform.OS === 'android') {
-        const { status: notificationStatus } = await Notifications.requestPermissionsAsync();
-        if (notificationStatus !== 'granted') {
-          console.warn('Notification permission not granted');
+        try {
+          const { status: notificationStatus } = await Notifications.requestPermissionsAsync();
+          if (notificationStatus !== 'granted') {
+            console.warn('Notification permission not granted:', notificationStatus);
+          } else {
+            console.log('Notification permission granted');
+          }
+        } catch (notifError) {
+          console.warn('Notification permission request failed:', notifError);
+          // Continue anyway - notifications are optional
         }
       }
 
       return true;
     } catch (error) {
       console.error('Error requesting permissions:', error);
-      return false;
+      // Return true if we have basic permissions, even if there were errors
+      try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        return status === 'granted';
+      } catch {
+        return false;
+      }
     }
   }
 
@@ -113,41 +142,81 @@ export class LocationService {
         throw new Error('Location permissions not granted');
       }
 
-      // Start foreground location tracking
-      this.locationSubscription = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.Highest,
-          timeInterval: 1000, // Update every second
-          distanceInterval: 1, // Update every meter
-        },
-        (location) => {
-          const locationData: LocationData = {
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-            altitude: location.coords.altitude,
-            speed: location.coords.speed,
-            accuracy: location.coords.accuracy,
-            timestamp: location.timestamp,
-          };
+      console.log('Starting location tracking...');
 
-          this.currentLocation = locationData;
-          this.notifyListeners(locationData);
-        }
-      );
+      // Start foreground location tracking with fallback options
+      try {
+        this.locationSubscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.Highest,
+            timeInterval: 1000, // Update every second
+            distanceInterval: 1, // Update every meter
+          },
+          (location) => {
+            console.log('Location update received:', {
+              lat: location.coords.latitude,
+              lng: location.coords.longitude,
+              accuracy: location.coords.accuracy
+            });
 
-      // Start background location tracking
-      await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-        accuracy: Location.Accuracy.Highest,
-        timeInterval: 5000, // Update every 5 seconds in background
-        distanceInterval: 10, // Update every 10 meters in background
-        foregroundService: {
-          notificationTitle: 'GPS Info',
-          notificationBody: 'Tracking location and altitude',
-          notificationColor: '#4285f4',
-        },
-      });
+            const locationData: LocationData = {
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+              altitude: location.coords.altitude,
+              speed: location.coords.speed,
+              accuracy: location.coords.accuracy,
+              timestamp: location.timestamp,
+            };
 
-      console.log('Location tracking started');
+            this.currentLocation = locationData;
+            this.notifyListeners(locationData);
+          }
+        );
+      } catch (watchError) {
+        console.error('Error starting location watch:', watchError);
+        // Try with lower accuracy as fallback
+        console.log('Trying with lower accuracy...');
+        this.locationSubscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.Balanced,
+            timeInterval: 2000,
+            distanceInterval: 5,
+          },
+          (location) => {
+            const locationData: LocationData = {
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+              altitude: location.coords.altitude,
+              speed: location.coords.speed,
+              accuracy: location.coords.accuracy,
+              timestamp: location.timestamp,
+            };
+
+            this.currentLocation = locationData;
+            this.notifyListeners(locationData);
+          }
+        );
+      }
+
+      // Try to start background location tracking (optional)
+      try {
+        await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: 5000, // Update every 5 seconds in background
+          distanceInterval: 10, // Update every 10 meters in background
+          foregroundService: {
+            notificationTitle: 'GPS Info',
+            notificationBody: 'Tracking location and altitude',
+            notificationColor: '#4285f4',
+          },
+        });
+        console.log('Background location tracking started');
+      } catch (bgTrackingError) {
+        console.warn('Background location tracking failed:', bgTrackingError);
+        // Continue without background tracking - foreground is sufficient
+      }
+
+      console.log('Location tracking started successfully');
     } catch (error) {
       console.error('Error starting location tracking:', error);
       throw error;
