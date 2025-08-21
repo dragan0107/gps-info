@@ -1,9 +1,4 @@
 import * as Location from 'expo-location';
-import * as TaskManager from 'expo-task-manager';
-import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
-
-const LOCATION_TASK_NAME = 'background-location-task';
 
 export interface LocationData {
   latitude: number;
@@ -21,47 +16,6 @@ export interface PlaceInfo {
   country?: string;
   formattedAddress?: string;
 }
-
-// Define the background location task
-TaskManager.defineTask(LOCATION_TASK_NAME, ({ data, error }) => {
-  if (error) {
-    console.error('Background location task error:', error);
-    return;
-  }
-  if (data) {
-    const { locations } = data as any;
-    const location = locations[0];
-    
-    if (location) {
-      console.log('Background location update:', {
-        lat: location.coords.latitude,
-        lng: location.coords.longitude,
-        alt: location.coords.altitude,
-      });
-
-      // Try to update notification with altitude (may not work in Expo Go)
-      const altitude = location.coords.altitude;
-      if (altitude && Platform.OS === 'android') {
-        try {
-          // This won't work in Expo Go but will work in development builds
-          Notifications.scheduleNotificationAsync({
-            content: {
-              title: 'GPS Info',
-              body: `Alt: ${Math.round(altitude)}m | Tracking location`,
-              data: { altitude },
-            },
-            trigger: null,
-            identifier: 'gps-foreground-update',
-          }).catch(() => {
-            // Silently fail in Expo Go
-          });
-        } catch (e) {
-          // Silently fail in Expo Go
-        }
-      }
-    }
-  }
-});
 
 export class LocationService {
   private static instance: LocationService;
@@ -93,45 +47,10 @@ export class LocationService {
       }
 
       console.log('Foreground location permission granted');
-
-      // Try to request background location permission, but don't fail if it's not granted
-      try {
-        const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-        if (backgroundStatus !== 'granted') {
-          console.warn('Background location permission not granted:', backgroundStatus);
-        } else {
-          console.log('Background location permission granted');
-        }
-      } catch (bgError) {
-        console.warn('Background permission request failed:', bgError);
-        // Continue anyway - foreground permission is sufficient for basic functionality
-      }
-
-      // Request notification permissions for Android (optional)
-      if (Platform.OS === 'android') {
-        try {
-          const { status: notificationStatus } = await Notifications.requestPermissionsAsync();
-          if (notificationStatus !== 'granted') {
-            console.warn('Notification permission not granted:', notificationStatus);
-          } else {
-            console.log('Notification permission granted');
-          }
-        } catch (notifError) {
-          console.warn('Notification permission request failed:', notifError);
-          // Continue anyway - notifications are optional
-        }
-      }
-
       return true;
     } catch (error) {
       console.error('Error requesting permissions:', error);
-      // Return true if we have basic permissions, even if there were errors
-      try {
-        const { status } = await Location.getForegroundPermissionsAsync();
-        return status === 'granted';
-      } catch {
-        return false;
-      }
+      return false;
     }
   }
 
@@ -149,7 +68,7 @@ export class LocationService {
         this.locationSubscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.Highest,
-            timeInterval: 1000, // Update every second
+            timeInterval: 2000, // Update every 2 seconds
             distanceInterval: 1, // Update every meter
           },
           (location) => {
@@ -198,24 +117,6 @@ export class LocationService {
         );
       }
 
-      // Try to start background location tracking (optional)
-      try {
-        await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-          accuracy: Location.Accuracy.Balanced,
-          timeInterval: 5000, // Update every 5 seconds in background
-          distanceInterval: 10, // Update every 10 meters in background
-          foregroundService: {
-            notificationTitle: 'GPS Info',
-            notificationBody: 'Tracking location and altitude',
-            notificationColor: '#4285f4',
-          },
-        });
-        console.log('Background location tracking started');
-      } catch (bgTrackingError) {
-        console.warn('Background location tracking failed:', bgTrackingError);
-        // Continue without background tracking - foreground is sufficient
-      }
-
       console.log('Location tracking started successfully');
     } catch (error) {
       console.error('Error starting location tracking:', error);
@@ -228,12 +129,6 @@ export class LocationService {
       if (this.locationSubscription) {
         this.locationSubscription.remove();
         this.locationSubscription = null;
-      }
-
-      // Stop background location tracking
-      const hasStarted = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
-      if (hasStarted) {
-        await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
       }
 
       console.log('Location tracking stopped');
