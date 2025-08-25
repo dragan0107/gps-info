@@ -1,34 +1,36 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text } from 'react-native';
+import { Text, TouchableOpacity } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import MainScreen from './src/screens/MainScreen';
 import SpeedDashboard from './src/screens/SpeedDashboard';
+import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 
 const Tab = createBottomTabNavigator();
 
 function AppNavigator() {
   const insets = useSafeAreaInsets();
+  const { theme, toggleTheme, isDark } = useTheme();
   
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#ffffff',
+          backgroundColor: theme.colors.surface,
           borderTopWidth: 1,
-          borderTopColor: '#e5e7eb',
+          borderTopColor: theme.colors.border,
           paddingTop: 8,
-          paddingBottom: Math.max(insets.bottom, 8), // Ensure minimum padding and respect safe area
-          height: 60 + Math.max(insets.bottom - 8, 0), // Adjust height based on safe area
+          paddingBottom: Math.max(insets.bottom, 8),
+          height: 60 + Math.max(insets.bottom - 8, 0),
           position: 'absolute',
           bottom: 0,
           left: 0,
           right: 0,
         },
-        tabBarActiveTintColor: '#059669',
-        tabBarInactiveTintColor: '#6b7280',
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.textSecondary,
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
@@ -43,6 +45,11 @@ function AppNavigator() {
           tabBarIcon: ({ color, size }) => (
             <Text style={{ fontSize: size, color }}>🧭</Text>
           ),
+          headerRight: () => (
+            <TouchableOpacity onPress={toggleTheme} style={{ marginRight: 15 }}>
+              <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌙'}</Text>
+            </TouchableOpacity>
+          ),
         }}
       />
       <Tab.Screen 
@@ -51,6 +58,11 @@ function AppNavigator() {
         options={{
           tabBarIcon: ({ color, size }) => (
             <Text style={{ fontSize: size, color }}>🚗</Text>
+          ),
+          headerRight: () => (
+            <TouchableOpacity onPress={toggleTheme} style={{ marginRight: 15 }}>
+              <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌙'}</Text>
+            </TouchableOpacity>
           ),
         }}
       />
@@ -61,9 +73,11 @@ function AppNavigator() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
-        <AppNavigator />
-      </NavigationContainer>
+      <ThemeProvider>
+        <NavigationContainer>
+          <AppNavigator />
+        </NavigationContainer>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

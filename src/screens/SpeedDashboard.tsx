@@ -5,12 +5,14 @@ import {
   ScrollView,
   StyleSheet,
   Dimensions,
+  TouchableOpacity,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Magnetometer } from 'expo-sensors';
 import { LocationService, LocationData, PlaceInfo } from '../services/locationService';
 import Speedometer from '../components/Speedometer';
+import { useTheme } from '../contexts/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
@@ -22,7 +24,11 @@ export default function SpeedDashboard() {
   const [tripDistance, setTripDistance] = useState(0);
   const [speedHistory, setSpeedHistory] = useState<number[]>([]);
   const [heading, setHeading] = useState<number>(0);
+  const [isTestMode, setIsTestMode] = useState(false);
+  const [testSpeed, setTestSpeed] = useState(0);
+  const [testInterval, setTestInterval] = useState<NodeJS.Timeout | null>(null);
   const insets = useSafeAreaInsets();
+  const { theme, toggleTheme, isDark } = useTheme();
 
   const locationService = LocationService.getInstance();
 
@@ -88,6 +94,110 @@ export default function SpeedDashboard() {
     };
   }, [maxSpeed]);
 
+  // Cleanup test interval on unmount
+  useEffect(() => {
+    return () => {
+      if (testInterval) {
+        clearInterval(testInterval);
+      }
+    };
+  }, [testInterval]);
+
+  // Speedometer Test Functions
+  const startSpeedometerTest = () => {
+    // Clean up any existing test first
+    if (testInterval) {
+      clearInterval(testInterval);
+    }
+    
+    // Smooth transition into test mode
+    setTestSpeed(0);
+    setIsTestMode(true);
+    
+    console.log('🚗 Starting speedometer test - realistic car acceleration/deceleration');
+    
+    let currentSpeed = 0;
+    let phase = 'accelerating'; // 'accelerating', 'cruising', 'decelerating'
+    let phaseTimer = 0;
+    
+    const newTestInterval = setInterval(() => {
+      phaseTimer += 100;
+      
+      switch (phase) {
+        case 'accelerating':
+          // Super aggressive acceleration to hit 250 km/h!
+          if (currentSpeed < 100) {
+            currentSpeed += 1.2; // Fast initial acceleration
+          } else if (currentSpeed < 200) {
+            currentSpeed += 0.8; // Still fast at high speeds
+          } else if (currentSpeed < 250) {
+            currentSpeed += 0.5; // Final push to 250
+          } else {
+            phase = 'cruising';
+            phaseTimer = 0;
+            console.log('🏎️ MAXED OUT at', Math.round(currentSpeed), 'km/h - FULL CIRCLE!');
+          }
+          break;
+          
+        case 'cruising':
+          // Cruise at max speed for 4 seconds to show off the full circle!
+          currentSpeed += (Math.random() - 0.5) * 3; // ±1.5 km/h variation
+          currentSpeed = Math.max(247, Math.min(250, currentSpeed)); // Keep between 247-250
+          
+          if (phaseTimer > 4000) {
+            phase = 'decelerating';
+            phaseTimer = 0;
+            console.log('🏎️ Starting epic deceleration from', Math.round(currentSpeed), 'km/h');
+          }
+          break;
+          
+        case 'decelerating':
+          // Epic braking from 250 to 0!
+          if (currentSpeed > 50) {
+            currentSpeed -= 3.5; // Strong braking from high speed
+          } else if (currentSpeed > 10) {
+            currentSpeed -= 2.0; // Moderate braking
+          } else if (currentSpeed > 0) {
+            currentSpeed -= 0.8; // Gentle final braking
+          } else {
+            currentSpeed = 0;
+            phase = 'stopped';
+            console.log('🏎️ EPIC TEST COMPLETE - Full circle animation done!');
+          }
+          break;
+          
+        case 'stopped':
+          clearInterval(newTestInterval);
+          setTestInterval(null);
+          setTimeout(() => {
+            setIsTestMode(false);
+            setTestSpeed(0);
+            console.log('🏎️ Test mode ended');
+          }, 2000);
+          return;
+      }
+      
+      setTestSpeed(Math.max(0, currentSpeed));
+    }, 100); // Update every 100ms for smooth animation
+    
+    setTestInterval(newTestInterval);
+  };
+
+  const stopSpeedometerTest = () => {
+    // Immediately stop any running test
+    if (testInterval) {
+      clearInterval(testInterval);
+      setTestInterval(null);
+    }
+    
+    // Smooth transition out of test mode
+    setTestSpeed(0);
+    setTimeout(() => {
+      setIsTestMode(false);
+    }, 100); // Small delay to let speed animate to 0
+    console.log('🚗 Speedometer test stopped');
+  };
+
   const updatePlaceInfo = async (latitude: number, longitude: number) => {
     try {
       const place = await locationService.reverseGeocode(latitude, longitude);
@@ -101,22 +211,208 @@ export default function SpeedDashboard() {
     return speed.toFixed(1);
   };
 
-  const currentSpeed = LocationService.convertSpeedToKmh(location?.speed) || 0;
+  const currentSpeed = isTestMode ? testSpeed : (LocationService.convertSpeedToKmh(location?.speed) || 0);
+
+  const dynamicStyles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    scrollView: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    scrollContent: {
+      padding: 16,
+    },
+    header: {
+      marginBottom: 20,
+      alignItems: 'center',
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+      marginTop: 25,
+    },
+    subtitle: {
+      fontSize: 16,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+    },
+    themeToggle: {
+      position: 'absolute',
+      top: insets.top + 10,
+      left: 20,
+      backgroundColor: theme.colors.surface,
+      borderRadius: 20,
+      padding: 10,
+      elevation: 4,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      zIndex: 1000,
+    },
+    statsContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+      marginTop: 8,
+      gap: 10,
+    },
+    statCard: {
+      flex: 1,
+      backgroundColor: theme.colors.cardBackground,
+      borderRadius: 12,
+      padding: 15,
+      alignItems: 'center',
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isDark ? 0.3 : 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+      borderWidth: isDark ? 1 : 0,
+      borderColor: theme.colors.border,
+    },
+    statLabel: {
+      fontSize: 12,
+      color: theme.colors.textSecondary,
+      fontWeight: '600',
+      marginBottom: 4,
+    },
+    statValue: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+    },
+    locationCard: {
+      backgroundColor: theme.colors.cardBackground,
+      borderRadius: 16,
+      padding: 20,
+      marginTop: 12,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isDark ? 0.3 : 0.1,
+      shadowRadius: 8,
+      elevation: 4,
+      borderWidth: isDark ? 1 : 0,
+      borderColor: theme.colors.border,
+    },
+    locationTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: 16,
+    },
+    locationContent: {
+      gap: 8,
+    },
+    locationRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    locationLabel: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      fontWeight: '500',
+    },
+    locationValue: {
+      fontSize: 14,
+      color: theme.colors.text,
+      fontWeight: '600',
+      textAlign: 'right',
+      flex: 1,
+      marginLeft: 12,
+    },
+    locationPlaceholder: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      fontStyle: 'italic',
+      textAlign: 'center',
+    },
+    testControls: {
+      alignItems: 'center',
+      marginVertical: 15,
+      paddingHorizontal: 20,
+    },
+    testButton: {
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 25,
+      minWidth: 200,
+      alignItems: 'center',
+      elevation: 3,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+    },
+    startButton: {
+      backgroundColor: '#22c55e', // Green
+    },
+    stopButton: {
+      backgroundColor: '#ef4444', // Red
+    },
+    testButtonText: {
+      color: '#ffffff',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    testStatus: {
+      marginTop: 8,
+      fontSize: 14,
+      color: theme.colors.primary,
+      fontWeight: '500',
+    },
+  });
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="dark" />
+    <View style={dynamicStyles.container}>
+      <StatusBar style={isDark ? "light" : "dark"} />
+      
+      {/* Theme Toggle Button */}
+      <TouchableOpacity style={dynamicStyles.themeToggle} onPress={toggleTheme}>
+        <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌙'}</Text>
+      </TouchableOpacity>
       
       <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        style={dynamicStyles.scrollView}
+        contentContainerStyle={[dynamicStyles.scrollContent, { paddingBottom: insets.bottom + 80 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Speed Dashboard</Text>
-          <Text style={styles.subtitle}>Real-time speed and movement data</Text>
+        <View style={dynamicStyles.header}>
+          <Text style={dynamicStyles.title}>Speed Dashboard</Text>
         </View>
+
+        {/* Speedometer Test Controls - Hidden but functionality preserved */}
+        {false && (
+          <View style={dynamicStyles.testControls}>
+            {!isTestMode ? (
+              <TouchableOpacity 
+                style={[dynamicStyles.testButton, dynamicStyles.startButton]}
+                onPress={startSpeedometerTest}
+              >
+                <Text style={dynamicStyles.testButtonText}>🚗 Test Speedometer</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity 
+                style={[dynamicStyles.testButton, dynamicStyles.stopButton]}
+                onPress={stopSpeedometerTest}
+              >
+                <Text style={dynamicStyles.testButtonText}>⏹️ Stop Test</Text>
+              </TouchableOpacity>
+            )}
+            {isTestMode && (
+              <Text style={dynamicStyles.testStatus}>
+                Testing: {Math.round(testSpeed)} km/h
+              </Text>
+            )}
+          </View>
+        )}
 
         {/* Speedometer */}
         <Speedometer 
@@ -129,66 +425,66 @@ export default function SpeedDashboard() {
         />
 
         {/* Speed Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Current</Text>
-            <Text style={styles.statValue}>{formatSpeed(currentSpeed)}</Text>
-            <Text style={styles.statUnit}>km/h</Text>
+        <View style={dynamicStyles.statsContainer}>
+          <View style={dynamicStyles.statCard}>
+            <Text style={dynamicStyles.statLabel}>Current</Text>
+            <Text style={dynamicStyles.statValue}>{formatSpeed(currentSpeed)}</Text>
+            <Text style={dynamicStyles.statLabel}>km/h</Text>
           </View>
           
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Max Speed</Text>
-            <Text style={styles.statValue}>{formatSpeed(maxSpeed)}</Text>
-            <Text style={styles.statUnit}>km/h</Text>
+          <View style={dynamicStyles.statCard}>
+            <Text style={dynamicStyles.statLabel}>Max Speed</Text>
+            <Text style={dynamicStyles.statValue}>{formatSpeed(maxSpeed)}</Text>
+            <Text style={dynamicStyles.statLabel}>km/h</Text>
           </View>
           
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Average</Text>
-            <Text style={styles.statValue}>{formatSpeed(avgSpeed)}</Text>
-            <Text style={styles.statUnit}>km/h</Text>
+          <View style={dynamicStyles.statCard}>
+            <Text style={dynamicStyles.statLabel}>Average</Text>
+            <Text style={dynamicStyles.statValue}>{formatSpeed(avgSpeed)}</Text>
+            <Text style={dynamicStyles.statLabel}>km/h</Text>
           </View>
         </View>
 
         {/* Location Info Card */}
-        <View style={styles.locationCard}>
-          <Text style={styles.locationTitle}>📍 Current Location</Text>
+        <View style={dynamicStyles.locationCard}>
+          <Text style={dynamicStyles.locationTitle}>📍 Current Location</Text>
           {placeInfo ? (
-            <View style={styles.locationContent}>
+            <View style={dynamicStyles.locationContent}>
               {placeInfo.street && (
-                <View style={styles.locationRow}>
-                  <Text style={styles.locationLabel}>Street:</Text>
-                  <Text style={styles.locationValue}>
+                <View style={dynamicStyles.locationRow}>
+                  <Text style={dynamicStyles.locationLabel}>Street:</Text>
+                  <Text style={dynamicStyles.locationValue}>
                     {placeInfo.street}
                   </Text>
                 </View>
               )}
               {placeInfo.city && (
-                <View style={styles.locationRow}>
-                  <Text style={styles.locationLabel}>City:</Text>
-                  <Text style={styles.locationValue}>
+                <View style={dynamicStyles.locationRow}>
+                  <Text style={dynamicStyles.locationLabel}>City:</Text>
+                  <Text style={dynamicStyles.locationValue}>
                     {placeInfo.city}
                   </Text>
                 </View>
               )}
               {placeInfo.region && (
-                <View style={styles.locationRow}>
-                  <Text style={styles.locationLabel}>Region:</Text>
-                  <Text style={styles.locationValue}>
+                <View style={dynamicStyles.locationRow}>
+                  <Text style={dynamicStyles.locationLabel}>Region:</Text>
+                  <Text style={dynamicStyles.locationValue}>
                     {placeInfo.region}
                   </Text>
                 </View>
               )}
               {placeInfo.country && (
-                <View style={styles.locationRow}>
-                  <Text style={styles.locationLabel}>Country:</Text>
-                  <Text style={styles.locationValue}>
+                <View style={dynamicStyles.locationRow}>
+                  <Text style={dynamicStyles.locationLabel}>Country:</Text>
+                  <Text style={dynamicStyles.locationValue}>
                     {placeInfo.country}
                   </Text>
                 </View>
               )}
             </View>
           ) : (
-            <Text style={styles.locationPlaceholder}>
+            <Text style={dynamicStyles.locationPlaceholder}>
               {location ? 'Loading location info...' : 'No location data'}
             </Text>
           )}
@@ -227,7 +523,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   speedometer: {
-    marginBottom: 24,
+    marginBottom: 8,
   },
   statsContainer: {
     flexDirection: 'row',

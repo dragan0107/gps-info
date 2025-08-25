@@ -7,14 +7,18 @@ import {
   AppState,
   AppStateStatus,
   StyleSheet,
+  TouchableOpacity,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LocationService, LocationData, PlaceInfo } from '../services/locationService';
 import Compass from '../components/Compass';
+import { useTheme } from '../contexts/ThemeContext';
 
 // Simple Signal Strength Component
 const SignalStrength = ({ accuracy }: { accuracy: number | null }) => {
+  const { theme, isDark } = useTheme();
+  
   const getSignalLevel = (acc: number | null): number => {
     if (!acc) return 0;
     if (acc <= 5) return 4; // Excellent
@@ -37,24 +41,61 @@ const SignalStrength = ({ accuracy }: { accuracy: number | null }) => {
   const signalLevel = getSignalLevel(accuracy);
   const signalColor = getSignalColor(signalLevel);
 
+  const signalStyles = StyleSheet.create({
+    signalContainer: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: 12,
+      padding: 8,
+      alignItems: 'center',
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: isDark ? 0.2 : 0.1,
+      shadowRadius: 4,
+      elevation: 2,
+      borderWidth: isDark ? 1 : 0,
+      borderColor: theme.colors.border,
+    },
+    signalLabel: {
+      fontSize: 12,
+      marginBottom: 4,
+      color: theme.colors.text,
+      fontWeight: '600',
+    },
+    signalBars: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      marginBottom: 4,
+      gap: 2,
+    },
+    signalBar: {
+      width: 4,
+      borderRadius: 1,
+    },
+    signalText: {
+      fontSize: 10,
+      color: theme.colors.textSecondary,
+      fontWeight: '600',
+    },
+  });
+
   return (
-    <View style={styles.signalContainer}>
-      <Text style={styles.signalLabel}>📶</Text>
-      <View style={styles.signalBars}>
+    <View style={signalStyles.signalContainer}>
+      <Text style={signalStyles.signalLabel}>GPS</Text>
+      <View style={signalStyles.signalBars}>
         {[1, 2, 3, 4].map((bar) => (
           <View
             key={bar}
             style={[
-              styles.signalBar,
+              signalStyles.signalBar,
               {
                 height: bar * 3 + 6,
-                backgroundColor: bar <= signalLevel ? signalColor : '#e5e7eb',
+                backgroundColor: bar <= signalLevel ? signalColor : (isDark ? '#374151' : '#e5e7eb'),
               },
             ]}
           />
         ))}
       </View>
-      <Text style={styles.signalText}>
+      <Text style={signalStyles.signalText}>
         {accuracy ? `${Math.round(accuracy)}m` : 'N/A'}
       </Text>
     </View>
@@ -67,6 +108,7 @@ export default function MainScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
+  const { theme, toggleTheme, isDark } = useTheme();
 
   const locationService = LocationService.getInstance();
 
@@ -190,9 +232,123 @@ export default function MainScreen() {
     );
   }
 
+  const dynamicStyles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    scrollView: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    scrollContent: {
+      padding: 16,
+    },
+    header: {
+      marginBottom: 20,
+      alignItems: 'center',
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+      marginTop: 25,
+    },
+    subtitle: {
+      fontSize: 16,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+    },
+    themeToggle: {
+      position: 'absolute',
+      top: insets.top + 10,
+      left: 20,
+      backgroundColor: theme.colors.surface,
+      borderRadius: 20,
+      padding: 10,
+      elevation: 4,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      zIndex: 1000,
+    },
+    card: {
+      backgroundColor: theme.colors.cardBackground,
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 20,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isDark ? 0.3 : 0.1,
+      shadowRadius: 8,
+      elevation: 4,
+      borderWidth: isDark ? 1 : 0,
+      borderColor: theme.colors.border,
+    },
+    cardTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: 16,
+    },
+    cardContent: {
+      gap: 12,
+    },
+    dataRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    dataLabel: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      fontWeight: '500',
+    },
+    dataValue: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    locationRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    locationLabel: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      fontWeight: '500',
+    },
+    locationValue: {
+      fontSize: 14,
+      color: theme.colors.text,
+      fontWeight: '600',
+      textAlign: 'right',
+      flex: 1,
+      marginLeft: 12,
+    },
+    locationContent: {
+      gap: 8,
+    },
+    locationPlaceholder: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      fontStyle: 'italic',
+      textAlign: 'center',
+    },
+  });
+
   return (
-    <View style={styles.container}>
-      <StatusBar style="dark" />
+    <View style={dynamicStyles.container}>
+      <StatusBar style={isDark ? "light" : "dark"} />
+      
+      {/* Theme Toggle Button */}
+      <TouchableOpacity style={dynamicStyles.themeToggle} onPress={toggleTheme}>
+        <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌙'}</Text>
+      </TouchableOpacity>
       
       {/* Signal Strength in top right */}
       <View style={styles.signalPosition}>
@@ -200,18 +356,16 @@ export default function MainScreen() {
       </View>
       
       <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        style={dynamicStyles.scrollView}
+        contentContainerStyle={[dynamicStyles.scrollContent, { paddingBottom: insets.bottom + 80 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>
+        <View style={dynamicStyles.header}>
+          <Text style={dynamicStyles.title}>
             GPS Info
           </Text>
-          <Text style={styles.subtitle}>
-            Real-time location and compass data
-          </Text>
+
         </View>
 
         {/* Compass */}
@@ -220,26 +374,26 @@ export default function MainScreen() {
         {/* GPS Data Cards */}
         <View style={styles.cardsContainer}>
           {/* Coordinates Card */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>
+          <View style={dynamicStyles.card}>
+            <Text style={dynamicStyles.cardTitle}>
               📍 Coordinates
             </Text>
-            <View style={styles.cardContent}>
-              <View style={styles.dataRow}>
-                <Text style={styles.dataLabel}>Latitude:</Text>
-                <Text style={styles.dataValue}>
+            <View style={dynamicStyles.cardContent}>
+              <View style={dynamicStyles.dataRow}>
+                <Text style={dynamicStyles.dataLabel}>Latitude:</Text>
+                <Text style={dynamicStyles.dataValue}>
                   {location ? formatCoordinate(location.latitude, 'lat') : 'N/A'}
                 </Text>
               </View>
-              <View style={styles.dataRow}>
-                <Text style={styles.dataLabel}>Longitude:</Text>
-                <Text style={styles.dataValue}>
+              <View style={dynamicStyles.dataRow}>
+                <Text style={dynamicStyles.dataLabel}>Longitude:</Text>
+                <Text style={dynamicStyles.dataValue}>
                   {location ? formatCoordinate(location.longitude, 'lng') : 'N/A'}
                 </Text>
               </View>
-              <View style={styles.dataRow}>
-                <Text style={styles.dataLabel}>Accuracy:</Text>
-                <Text style={styles.dataValue}>
+              <View style={dynamicStyles.dataRow}>
+                <Text style={dynamicStyles.dataLabel}>Accuracy:</Text>
+                <Text style={dynamicStyles.dataValue}>
                   {location ? formatAccuracy(location.accuracy) : 'N/A'}
                 </Text>
               </View>
@@ -247,26 +401,26 @@ export default function MainScreen() {
           </View>
 
           {/* Altitude & Speed Card */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>
+          <View style={dynamicStyles.card}>
+            <Text style={dynamicStyles.cardTitle}>
               📊 Movement Data
             </Text>
-            <View style={styles.cardContent}>
-              <View style={styles.dataRow}>
-                <Text style={styles.dataLabel}>API Altitude:</Text>
-                <Text style={styles.dataValue}>
+            <View style={dynamicStyles.cardContent}>
+              <View style={dynamicStyles.dataRow}>
+                <Text style={dynamicStyles.dataLabel}>API Altitude:</Text>
+                <Text style={dynamicStyles.dataValue}>
                   {location ? formatAltitude(location.altitude) : 'N/A'}
                 </Text>
               </View>
-              <View style={styles.dataRow}>
-                <Text style={styles.dataLabel}>GPS Altitude:</Text>
-                <Text style={styles.dataValue}>
+              <View style={dynamicStyles.dataRow}>
+                <Text style={dynamicStyles.dataLabel}>GPS Altitude:</Text>
+                <Text style={dynamicStyles.dataValue}>
                   {location ? formatGPSAltitude(location.altitude) : 'N/A'}
                 </Text>
               </View>
-              <View style={styles.dataRow}>
-                <Text style={styles.dataLabel}>Speed:</Text>
-                <Text style={styles.dataValue}>
+              <View style={dynamicStyles.dataRow}>
+                <Text style={dynamicStyles.dataLabel}>Speed:</Text>
+                <Text style={dynamicStyles.dataValue}>
                   {location ? formatSpeed(location.speed) : 'N/A'}
                 </Text>
               </View>
@@ -274,60 +428,60 @@ export default function MainScreen() {
           </View>
 
           {/* Location Info Card */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>
+          <View style={dynamicStyles.card}>
+            <Text style={dynamicStyles.cardTitle}>
               🏠 Location
             </Text>
             {placeInfo ? (
-              <View style={styles.cardContent}>
+              <View style={dynamicStyles.cardContent}>
                 {placeInfo.street && (
-                  <View style={styles.dataRow}>
-                    <Text style={styles.dataLabel}>Street:</Text>
-                    <Text style={[styles.dataValue, styles.locationText]}>
+                  <View style={dynamicStyles.dataRow}>
+                    <Text style={dynamicStyles.dataLabel}>Street:</Text>
+                    <Text style={dynamicStyles.locationValue}>
                       {placeInfo.street}
                     </Text>
                   </View>
                 )}
                 {placeInfo.city && (
-                  <View style={styles.dataRow}>
-                    <Text style={styles.dataLabel}>City:</Text>
-                    <Text style={[styles.dataValue, styles.locationText]}>
+                  <View style={dynamicStyles.dataRow}>
+                    <Text style={dynamicStyles.dataLabel}>City:</Text>
+                    <Text style={dynamicStyles.locationValue}>
                       {placeInfo.city}
                     </Text>
                   </View>
                 )}
                 {placeInfo.region && (
-                  <View style={styles.dataRow}>
-                    <Text style={styles.dataLabel}>Region:</Text>
-                    <Text style={[styles.dataValue, styles.locationText]}>
+                  <View style={dynamicStyles.dataRow}>
+                    <Text style={dynamicStyles.dataLabel}>Region:</Text>
+                    <Text style={dynamicStyles.locationValue}>
                       {placeInfo.region}
                     </Text>
                   </View>
                 )}
                 {placeInfo.country && (
-                  <View style={styles.dataRow}>
-                    <Text style={styles.dataLabel}>Country:</Text>
-                    <Text style={[styles.dataValue, styles.locationText]}>
+                  <View style={dynamicStyles.dataRow}>
+                    <Text style={dynamicStyles.dataLabel}>Country:</Text>
+                    <Text style={dynamicStyles.locationValue}>
                       {placeInfo.country}
                     </Text>
                   </View>
                 )}
               </View>
             ) : (
-              <Text style={styles.placeholderText}>
+              <Text style={dynamicStyles.locationPlaceholder}>
                 {location ? 'Loading location info...' : 'No location data'}
               </Text>
             )}
           </View>
 
           {/* Status Card */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>
+          <View style={dynamicStyles.card}>
+            <Text style={dynamicStyles.cardTitle}>
               ⚡ Status
             </Text>
-            <View style={styles.cardContent}>
-              <View style={styles.dataRow}>
-                <Text style={styles.dataLabel}>GPS Status:</Text>
+            <View style={dynamicStyles.cardContent}>
+              <View style={dynamicStyles.dataRow}>
+                <Text style={dynamicStyles.dataLabel}>GPS Status:</Text>
                 <Text style={[
                   styles.dataValue, 
                   styles.statusText,
@@ -337,9 +491,9 @@ export default function MainScreen() {
                 </Text>
               </View>
               {location && (
-                <View style={styles.dataRow}>
-                  <Text style={styles.dataLabel}>Last Update:</Text>
-                  <Text style={[styles.dataValue, styles.timestampText]}>
+                <View style={dynamicStyles.dataRow}>
+                  <Text style={dynamicStyles.dataLabel}>Last Update:</Text>
+                  <Text style={dynamicStyles.dataValue}>
                     {new Date(location.timestamp).toLocaleTimeString()}
                   </Text>
                 </View>

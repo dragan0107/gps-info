@@ -68,7 +68,7 @@ export class LocationService {
         this.locationSubscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.Highest,
-            timeInterval: 2000, // Update every 2 seconds
+            timeInterval: 1000, // Update every 1 second
             distanceInterval: 1, // Update every meter
           },
           (location) => {
@@ -98,7 +98,7 @@ export class LocationService {
         this.locationSubscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.Balanced,
-            timeInterval: 2000,
+            timeInterval: 1000,
             distanceInterval: 5,
           },
           (location) => {
