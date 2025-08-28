@@ -72,11 +72,11 @@ export const useCompass = () => {
         if (diff > 180) diff -= 360;
         if (diff < -180) diff += 360;
 
-        // Ultra-responsive smoothing for buttery smooth animations
-        const smoothingFactor = 0.08; // Much more responsive (lower = smoother)
+        // Optimized responsive smoothing
+        const smoothingFactor = 0.12; // More responsive than before
 
         // Smart noise filtering - only update for meaningful changes
-        const minChangeThreshold = 0.3; // Increased threshold to prevent excessive updates
+        const minChangeThreshold = 0.2; // Lower threshold for faster updates
         const smoothed = Math.abs(diff) > minChangeThreshold
           ? current + diff * smoothingFactor
           : current;
@@ -85,7 +85,7 @@ export const useCompass = () => {
         const finalHeading = ((smoothed % 360) + 360) % 360;
 
         // Only update state if there's a meaningful change to prevent unnecessary re-renders
-        if (Math.abs(finalHeading - smoothedHeadingRef.current) > 0.1) {
+        if (Math.abs(finalHeading - smoothedHeadingRef.current) > 0.08) {
           smoothedHeadingRef.current = finalHeading;
           setHeading(finalHeading);
         }
@@ -123,15 +123,15 @@ export default function Compass({ style }: CompassProps) {
     }
 
     animationFrameRef.current = requestAnimationFrame(() => {
-      const visualSmoothingFactor = 0.05; // Even smoother for visuals
+      const visualSmoothingFactor = 0.08; // More responsive visuals
       let diff = heading - visualRef.current;
 
       // Handle 360° boundary
       if (diff > 180) diff -= 360;
       if (diff < -180) diff += 360;
 
-      // Only update if there's a meaningful change
-      const minVisualChange = 0.1;
+      // Lower threshold for faster visual response
+      const minVisualChange = 0.08;
       if (Math.abs(diff) > minVisualChange) {
         const smoothed = visualRef.current + diff * visualSmoothingFactor;
         const finalVisual = ((smoothed % 360) + 360) % 360;
