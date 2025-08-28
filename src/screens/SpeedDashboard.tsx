@@ -9,10 +9,11 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Magnetometer } from 'expo-sensors';
 import { LocationService, LocationData, PlaceInfo } from '../services/locationService';
 import { SpeedLimitService, SpeedLimitData } from '../services/speedLimitService';
 import Speedometer from '../components/Speedometer';
+
+import { useCompass } from '../components/Compass';
 import { useTheme } from '../contexts/ThemeContext';
 
 const { width } = Dimensions.get('window');
@@ -25,7 +26,7 @@ export default function SpeedDashboard() {
   const [avgSpeed, setAvgSpeed] = useState(0);
   const [tripDistance, setTripDistance] = useState(0);
   const [speedHistory, setSpeedHistory] = useState<number[]>([]);
-  const [heading, setHeading] = useState<number>(0);
+  const heading = useCompass(); // Use shared compass hook for Speedometer display
   const [isTestMode, setIsTestMode] = useState(false);
   const [testSpeed, setTestSpeed] = useState(0);
   const [testInterval, setTestInterval] = useState<NodeJS.Timeout | null>(null);
@@ -76,31 +77,10 @@ export default function SpeedDashboard() {
       locationListener(currentLocation);
     }
 
-    // Setup magnetometer for compass heading
-    let magnetometerSubscription: any;
-    const setupMagnetometer = async () => {
-      Magnetometer.setUpdateInterval(200); // Update every 200ms
-      
-      magnetometerSubscription = Magnetometer.addListener((data) => {
-        // Calculate heading from magnetometer data
-        let compassHeading = Math.atan2(-data.x, data.y) * (180 / Math.PI);
-        
-        // Ensure positive angle (0-360°)
-        if (compassHeading < 0) {
-          compassHeading += 360;
-        }
-        
-        setHeading(compassHeading);
-      });
-    };
-
-    setupMagnetometer();
+    // Compass heading is now provided by the shared useCompass hook
 
     return () => {
       locationService.removeLocationListener(locationListener);
-      if (magnetometerSubscription) {
-        magnetometerSubscription.remove();
-      }
     };
   }, [maxSpeed]);
 
@@ -377,6 +357,7 @@ export default function SpeedDashboard() {
       color: theme.colors.primary,
       fontWeight: '500',
     },
+
   });
 
   return (
@@ -425,7 +406,7 @@ export default function SpeedDashboard() {
         )}
 
         {/* Speedometer */}
-        <Speedometer 
+        <Speedometer
           speed={currentSpeed}
           altitude={location?.altitude ? location.altitude - 44 : null}
           accuracy={location?.accuracy}
@@ -625,3 +606,5 @@ const styles = StyleSheet.create({
   },
 
 });
+
+

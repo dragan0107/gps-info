@@ -1,165 +1,208 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { Magnetometer } from 'expo-sensors';
+import { Magnetometer, Accelerometer } from 'expo-sensors';
 import Svg, { Circle, Line, Text as SvgText, G, Polygon } from 'react-native-svg';
 import { useTheme } from '../contexts/ThemeContext';
+
+// Shared compass hook that can be used by multiple components
+export const useCompass = () => {
+  const [heading, setHeading] = useState(0);
+  const smoothedHeadingRef = useRef(0);
+  const accelRef = useRef({ x: 0, y: 0, z: 0 });
+
+  // Calculate tilt-compensated compass heading
+  const calculateTiltCompensatedHeading = (magnet: { x: number; y: number; z: number }, accel: { x: number; y: number; z: number }): number => {
+    // Normalize vectors
+    const norm = (vec: { x: number; y: number; z: number }) => {
+      const mag = Math.sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z) || 1;
+      return { x: vec.x / mag, y: vec.y / mag, z: vec.z / mag };
+    };
+
+    const a = norm(accel);
+    const m = norm(magnet);
+
+    // Calculate roll and pitch from accelerometer
+    const roll = Math.atan2(a.y, a.z); // Rotation around X axis
+    const pitch = Math.atan2(-a.x, Math.sqrt(a.y * a.y + a.z * a.z)); // Rotation around Y axis
+
+    // Tilt compensation
+    const mx = m.x * Math.cos(pitch) + m.z * Math.sin(pitch);
+    const my = m.x * Math.sin(roll) * Math.sin(pitch) + m.y * Math.cos(roll) - m.z * Math.sin(roll) * Math.cos(pitch);
+
+    // Calculate heading
+    const radians = Math.atan2(-mx, my);
+    let degrees = radians * (180 / Math.PI);
+
+    // Convert to 0-360 range
+    return (degrees + 360) % 360;
+  };
+
+  useEffect(() => {
+    let magSub: any;
+    let accSub: any;
+
+    const startCompass = async () => {
+      Magnetometer.setUpdateInterval(100);
+      Accelerometer.setUpdateInterval(100);
+
+      // Listen to accelerometer for device orientation
+      accSub = Accelerometer.addListener((data) => {
+        accelRef.current = data;
+      });
+
+      // Listen to magnetometer with tilt compensation
+      magSub = Magnetometer.addListener((data) => {
+        const accel = accelRef.current;
+
+        // Calculate tilt-compensated heading (fallback to basic if no accel data)
+        let degrees: number;
+        if (accel && (accel.x !== 0 || accel.y !== 0 || accel.z !== 0)) {
+          degrees = calculateTiltCompensatedHeading(data, accel);
+        } else {
+          // Fallback to basic calculation if accelerometer data is not available
+          const radians = Math.atan2(data.y, data.x);
+          degrees = (radians * 180 / Math.PI + 360) % 360;
+        }
+
+        // Smooth the transition to avoid jerky movements
+        const current = smoothedHeadingRef.current;
+        let diff = degrees - current;
+
+        // Handle 360/0 boundary crossing
+        if (diff > 180) diff -= 360;
+        if (diff < -180) diff += 360;
+
+        // Apply smoothing (lower = smoother)
+        const smoothingFactor = 0.3;
+        const smoothed = current + diff * smoothingFactor;
+
+        // Keep in 0-360 range
+        const finalHeading = ((smoothed % 360) + 360) % 360;
+
+        smoothedHeadingRef.current = finalHeading;
+        setHeading(finalHeading);
+      });
+    };
+
+    startCompass();
+
+    return () => {
+      if (magSub) magSub.remove();
+      if (accSub) accSub.remove();
+    };
+  }, []);
+
+  return heading;
+};
 
 interface CompassProps {
   style?: ViewStyle;
 }
 
 export default function Compass({ style }: CompassProps) {
-  const [heading, setHeading] = useState(0);
-  const [displayHeading, setDisplayHeading] = useState(0);
-  const smoothedHeading = useRef(0);
+  const heading = useCompass(); // Use the shared compass hook
   const { theme, isDark } = useTheme();
 
-  useEffect(() => {
-    let subscription: any;
+  // Compass dimensions
+  const size = 180;
+  const center = size / 2;
+  const outerRadius = center - 12;
+  const innerRadius = outerRadius - 20;
 
-    const subscribe = async () => {
-      Magnetometer.setUpdateInterval(100);
-      
-      subscription = Magnetometer.addListener((data) => {
-        let compassHeading = Math.atan2(-data.x, data.y) * (180 / Math.PI);
-        
-        if (compassHeading < 0) {
-          compassHeading += 360;
-        }
+  // Generate tick marks
+  const ticks = [];
+  for (let deg = 0; deg < 360; deg += 15) {
+    const rad = (deg * Math.PI) / 180;
+    const isMain = deg % 90 === 0;
+    const tickLength = isMain ? 15 : 10;
+    const tickRadius = outerRadius - tickLength;
 
-        const alpha = 0.15;
-        let diff = compassHeading - smoothedHeading.current;
-        if (diff > 180) {
-          diff -= 360;
-        } else if (diff < -180) {
-          diff += 360;
-        }
-        
-        smoothedHeading.current += diff * alpha;
-        
-        if (smoothedHeading.current < 0) {
-          smoothedHeading.current += 360;
-        } else if (smoothedHeading.current >= 360) {
-          smoothedHeading.current -= 360;
-        }
+    const x1 = center + Math.cos(rad) * outerRadius;
+    const y1 = center + Math.sin(rad) * outerRadius;
+    const x2 = center + Math.cos(rad) * tickRadius;
+    const y2 = center + Math.sin(rad) * tickRadius;
 
-        setHeading(smoothedHeading.current);
-        setDisplayHeading(smoothedHeading.current);
-      });
-    };
+    ticks.push(
+      <Line
+        key={deg}
+        x1={x1}
+        y1={y1}
+        x2={x2}
+        y2={y2}
+        stroke={isDark ? '#64748b' : '#475569'}
+        strokeWidth={isMain ? 2 : 1}
+      />
+    );
+  }
 
-    subscribe();
+  // Cardinal directions
+  const directions = [
+    { label: 'N', angle: 0, color: '#ef4444' },
+    { label: 'E', angle: 90, color: isDark ? '#e2e8f0' : '#334155' },
+    { label: 'S', angle: 180, color: isDark ? '#e2e8f0' : '#334155' },
+    { label: 'W', angle: 270, color: isDark ? '#e2e8f0' : '#334155' },
+  ];
 
-    return () => {
-      if (subscription) {
-        subscription.remove();
-      }
-    };
-  }, []);
+  const labels = directions.map(({ label, angle, color }) => {
+    const rad = (angle * Math.PI) / 180;
+    const labelRadius = outerRadius - 30;
+    const x = center + Math.cos(rad) * labelRadius;
+    const y = center + Math.sin(rad) * labelRadius;
 
-  const compassSize = 200;
-  const center = compassSize / 2;
-  const radius = center - 20;
+    return (
+      <SvgText
+        key={label}
+        x={x}
+        y={y + 5}
+        fontSize="16"
+        fontWeight="bold"
+        fill={color}
+        textAnchor="middle"
+      >
+        {label}
+      </SvgText>
+    );
+  });
 
-  const generateTicks = () => {
-    const ticks = [];
-    for (let i = 0; i < 360; i += 10) {
-      const angle = (i * Math.PI) / 180;
-      const isMajor = i % 30 === 0;
-      const tickLength = isMajor ? 15 : 8;
-      const innerRadius = radius - tickLength;
-      
-      const x1 = center + Math.cos(angle - Math.PI / 2) * radius;
-      const y1 = center + Math.sin(angle - Math.PI / 2) * radius;
-      const x2 = center + Math.cos(angle - Math.PI / 2) * innerRadius;
-      const y2 = center + Math.sin(angle - Math.PI / 2) * innerRadius;
+  // Rotate the compass face - try -90° offset instead
+  // Negative rotation for opposite direction, -90° to correct cardinal alignment
+  const visualRotation = -heading - 90;
+  const faceRotation = `rotate(${visualRotation} ${center} ${center})`;
 
-      ticks.push(
-        <Line
-          key={i}
-          x1={x1}
-          y1={y1}
-          x2={x2}
-          y2={y2}
-          stroke={isDark ? "#94a3b8" : "#4B5563"}
-          strokeWidth={isMajor ? 2 : 1}
-        />
-      );
-    }
-    return ticks;
-  };
-
-  const generateLabels = () => {
-    const labels = [
-      { text: 'N', angle: 0 },
-      { text: 'E', angle: 90 },
-      { text: 'S', angle: 180 },
-      { text: 'W', angle: 270 },
-    ];
-
-    return labels.map(({ text, angle }) => {
-      const rad = (angle * Math.PI) / 180;
-      const labelRadius = radius - 35;
-      const x = center + Math.cos(rad - Math.PI / 2) * labelRadius;
-      const y = center + Math.sin(rad - Math.PI / 2) * labelRadius;
-
-      return (
-        <SvgText
-          key={text}
-          x={x}
-          y={y + 6}
-          fontSize="18"
-          fontWeight="bold"
-          fill={isDark ? "#f1f5f9" : "#1F2937"}
-          textAnchor="middle"
-        >
-          {text}
-        </SvgText>
-      );
-    });
-  };
-
-  const compassRotation = `rotate(${-heading} ${center} ${center})`;
-
-  const dynamicStyles = StyleSheet.create({
+  const styles = StyleSheet.create({
     container: {
       alignItems: 'center',
+      marginVertical: 10,
     },
     compassContainer: {
-      backgroundColor: theme.colors.compassBackground,
+      backgroundColor: theme.colors.surface,
       borderRadius: 16,
+      padding: 16,
       shadowColor: theme.colors.shadow,
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
+      shadowOffset: { width: 0, height: 2 },
       shadowOpacity: isDark ? 0.3 : 0.1,
       shadowRadius: 8,
       elevation: 4,
-      padding: 16,
-      marginBottom: 16,
       borderWidth: isDark ? 1 : 0,
       borderColor: theme.colors.border,
     },
-    headingContainer: {
-      backgroundColor: theme.colors.surface,
-      borderRadius: 12,
+    infoContainer: {
+      backgroundColor: theme.colors.cardBackground,
+      borderRadius: 10,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      marginTop: 12,
+      borderWidth: isDark ? 1 : 0,
+      borderColor: theme.colors.border,
       shadowColor: theme.colors.shadow,
-      shadowOffset: {
-        width: 0,
-        height: 1,
-      },
+      shadowOffset: { width: 0, height: 1 },
       shadowOpacity: isDark ? 0.2 : 0.05,
       shadowRadius: 4,
       elevation: 2,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderWidth: isDark ? 1 : 0,
-      borderColor: theme.colors.border,
     },
     headingText: {
-      fontSize: 18,
-      fontWeight: '600',
+      fontSize: 20,
+      fontWeight: 'bold',
       color: theme.colors.text,
       textAlign: 'center',
     },
@@ -167,107 +210,80 @@ export default function Compass({ style }: CompassProps) {
       fontSize: 14,
       color: theme.colors.textSecondary,
       textAlign: 'center',
+      marginTop: 2,
     },
   });
 
+  const getCardinalDirection = (deg: number): string => {
+    const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+    const idx = Math.round(deg / 22.5) % 16;
+    return dirs[idx];
+  };
+
   return (
-    <View style={[dynamicStyles.container, style]}>
-      <View style={dynamicStyles.compassContainer}>
-        <Svg width={compassSize} height={compassSize}>
+    <View style={[styles.container, style]}>
+      <View style={styles.compassContainer}>
+        <Svg width={size} height={size}>
+          {/* Outer ring */}
           <Circle
             cx={center}
             cy={center}
-            r={radius}
+            r={outerRadius}
             fill="none"
-            stroke={isDark ? "#64748b" : "#6B7280"}
-            strokeWidth="3"
+            stroke={isDark ? '#475569' : '#64748b'}
+            strokeWidth={2}
           />
-          
+
+          {/* Inner ring */}
           <Circle
             cx={center}
             cy={center}
-            r={radius - 40}
+            r={innerRadius}
             fill="none"
-            stroke={isDark ? "#475569" : "#E5E7EB"}
-            strokeWidth="1"
+            stroke={isDark ? '#334155' : '#cbd5e1'}
+            strokeWidth={1}
           />
 
-          <G transform={compassRotation}>
-            {generateTicks()}
-            {generateLabels()}
+          {/* Rotating face */}
+          <G transform={faceRotation}>
+            {ticks}
+            {labels}
           </G>
 
-          <G>
-            <Polygon
-              points={`${center},${center - radius + 50} ${center - 6},${center - 5} ${center + 6},${center - 5}`}
-              fill="#EF4444"
-              stroke="#DC2626"
-              strokeWidth="2"
-            />
-            <Line
-              x1={center}
-              y1={center - 5}
-              x2={center}
-              y2={center - radius + 50}
-              stroke="#DC2626"
-              strokeWidth="3"
-              strokeLinecap="round"
-            />
-          </G>
+          {/* Fixed north needle */}
+          <Polygon
+            points={`${center},${center - outerRadius + 25} ${center - 6},${center - 6} ${center + 6},${center - 6}`}
+            fill="#ef4444"
+            stroke="#dc2626"
+            strokeWidth={1.5}
+          />
 
-          <G>
-            <Polygon
-              points={`${center},${center + radius - 50} ${center - 6},${center + 5} ${center + 6},${center + 5}`}
-              fill="#FFFFFF"
-              stroke="#374151"
-              strokeWidth="2"
-            />
-            <Line
-              x1={center}
-              y1={center + 5}
-              x2={center}
-              y2={center + radius - 50}
-              stroke="#374151"
-              strokeWidth="3"
-              strokeLinecap="round"
-            />
-          </G>
+          <Line
+            x1={center}
+            y1={center - 6}
+            x2={center}
+            y2={center - outerRadius + 25}
+            stroke="#dc2626"
+            strokeWidth={3}
+            strokeLinecap="round"
+          />
 
+          {/* Center dot */}
           <Circle
             cx={center}
             cy={center}
-            r="8"
-            fill="#2D3748"
-            stroke="#FFFFFF"
-            strokeWidth="2"
-          />
-          
-          <Circle
-            cx={center}
-            cy={center}
-            r="3"
-            fill="#FFFFFF"
+            r={5}
+            fill={isDark ? '#1e293b' : '#334155'}
+            stroke="#ffffff"
+            strokeWidth={1.5}
           />
         </Svg>
       </View>
-      
-      <View style={dynamicStyles.headingContainer}>
-        <Text style={dynamicStyles.headingText}>
-          {Math.round(displayHeading)}°
-        </Text>
-        <Text style={dynamicStyles.directionText}>
-          {getCardinalDirection(displayHeading)}
-        </Text>
+
+      <View style={styles.infoContainer}>
+        <Text style={styles.headingText}>{Math.round(heading)}°</Text>
+        <Text style={styles.directionText}>{getCardinalDirection(heading)}</Text>
       </View>
     </View>
   );
-}
-
-function getCardinalDirection(heading: number): string {
-  const directions = [
-    'N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
-    'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'
-  ];
-  const index = Math.round(heading / 22.5) % 16;
-  return directions[index];
 }
