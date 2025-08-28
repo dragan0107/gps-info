@@ -42,8 +42,8 @@ export const useCompass = () => {
     let accSub: any;
 
     const startCompass = async () => {
-      Magnetometer.setUpdateInterval(100);
-      Accelerometer.setUpdateInterval(100);
+      Magnetometer.setUpdateInterval(30); // Ultra-responsive updates
+      Accelerometer.setUpdateInterval(30);
 
       // Listen to accelerometer for device orientation
       accSub = Accelerometer.addListener((data) => {
@@ -72,15 +72,23 @@ export const useCompass = () => {
         if (diff > 180) diff -= 360;
         if (diff < -180) diff += 360;
 
-        // Apply smoothing (lower = smoother)
-        const smoothingFactor = 0.3;
-        const smoothed = current + diff * smoothingFactor;
+        // Ultra-responsive smoothing for buttery smooth animations
+        const smoothingFactor = 0.08; // Much more responsive (lower = smoother)
+
+        // Smart noise filtering - only update for meaningful changes
+        const minChangeThreshold = 0.3; // Increased threshold to prevent excessive updates
+        const smoothed = Math.abs(diff) > minChangeThreshold
+          ? current + diff * smoothingFactor
+          : current;
 
         // Keep in 0-360 range
         const finalHeading = ((smoothed % 360) + 360) % 360;
 
-        smoothedHeadingRef.current = finalHeading;
-        setHeading(finalHeading);
+        // Only update state if there's a meaningful change to prevent unnecessary re-renders
+        if (Math.abs(finalHeading - smoothedHeadingRef.current) > 0.1) {
+          smoothedHeadingRef.current = finalHeading;
+          setHeading(finalHeading);
+        }
       });
     };
 
@@ -102,6 +110,44 @@ interface CompassProps {
 export default function Compass({ style }: CompassProps) {
   const heading = useCompass(); // Use the shared compass hook
   const { theme, isDark } = useTheme();
+
+  // Additional smoothing for visual rotation with throttling
+  const [visualHeading, setVisualHeading] = useState(0);
+  const visualRef = useRef(0);
+  const animationFrameRef = useRef<number | null>(null);
+
+  // Throttled visual smoothing to prevent infinite loops
+  useEffect(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+
+    animationFrameRef.current = requestAnimationFrame(() => {
+      const visualSmoothingFactor = 0.05; // Even smoother for visuals
+      let diff = heading - visualRef.current;
+
+      // Handle 360° boundary
+      if (diff > 180) diff -= 360;
+      if (diff < -180) diff += 360;
+
+      // Only update if there's a meaningful change
+      const minVisualChange = 0.1;
+      if (Math.abs(diff) > minVisualChange) {
+        const smoothed = visualRef.current + diff * visualSmoothingFactor;
+        const finalVisual = ((smoothed % 360) + 360) % 360;
+
+        visualRef.current = finalVisual;
+        setVisualHeading(finalVisual);
+      }
+    });
+
+    // Cleanup
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [heading]);
 
   // Compass dimensions
   const size = 180;
@@ -164,9 +210,9 @@ export default function Compass({ style }: CompassProps) {
     );
   });
 
-  // Rotate the compass face - try -90° offset instead
+  // Ultra-smooth visual rotation using double-smoothed heading
   // Negative rotation for opposite direction, -90° to correct cardinal alignment
-  const visualRotation = -heading - 90;
+  const visualRotation = -visualHeading - 90;
   const faceRotation = `rotate(${visualRotation} ${center} ${center})`;
 
   const styles = StyleSheet.create({
@@ -281,8 +327,8 @@ export default function Compass({ style }: CompassProps) {
       </View>
 
       <View style={styles.infoContainer}>
-        <Text style={styles.headingText}>{Math.round(heading)}°</Text>
-        <Text style={styles.directionText}>{getCardinalDirection(heading)}</Text>
+        <Text style={styles.headingText}>{Math.round(visualHeading)}°</Text>
+        <Text style={styles.directionText}>{getCardinalDirection(visualHeading)}</Text>
       </View>
     </View>
   );
