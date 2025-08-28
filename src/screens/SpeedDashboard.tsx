@@ -11,6 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Magnetometer } from 'expo-sensors';
 import { LocationService, LocationData, PlaceInfo } from '../services/locationService';
+import { SpeedLimitService, SpeedLimitData } from '../services/speedLimitService';
 import Speedometer from '../components/Speedometer';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -19,6 +20,7 @@ const { width } = Dimensions.get('window');
 export default function SpeedDashboard() {
   const [location, setLocation] = useState<LocationData | null>(null);
   const [placeInfo, setPlaceInfo] = useState<PlaceInfo | null>(null);
+  const [speedLimitData, setSpeedLimitData] = useState<SpeedLimitData | null>(null);
   const [maxSpeed, setMaxSpeed] = useState(0);
   const [avgSpeed, setAvgSpeed] = useState(0);
   const [tripDistance, setTripDistance] = useState(0);
@@ -31,6 +33,7 @@ export default function SpeedDashboard() {
   const { theme, toggleTheme, isDark } = useTheme();
 
   const locationService = LocationService.getInstance();
+  const speedLimitService = SpeedLimitService.getInstance();
 
   useEffect(() => {
     // Add location listener
@@ -38,6 +41,13 @@ export default function SpeedDashboard() {
       setLocation(locationData);
       
       const currentSpeed = LocationService.convertSpeedToKmh(locationData.speed) || 0;
+
+      // Get speed limit for current location
+      speedLimitService.getSpeedLimit(locationData).then(data => {
+        setSpeedLimitData(data);
+      }).catch(error => {
+        console.log('Speed limit fetch error:', error);
+      });
       
       // Update max speed
       if (currentSpeed > maxSpeed) {
@@ -420,6 +430,7 @@ export default function SpeedDashboard() {
           altitude={location?.altitude ? location.altitude - 44 : null}
           accuracy={location?.accuracy}
           heading={heading}
+          speedLimit={speedLimitData?.speedLimit}
           maxSpeed={250}
           style={styles.speedometer}
         />

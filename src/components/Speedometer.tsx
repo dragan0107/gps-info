@@ -7,11 +7,12 @@ interface SpeedometerProps {
   altitude: number | null; // Altitude in meters
   accuracy: number | null; // GPS accuracy in meters
   heading: number | null; // Compass heading in degrees
+  speedLimit: number | null; // Speed limit in km/h
   maxSpeed?: number;
   style?: ViewStyle;
 }
 
-export default function Speedometer({ speed, altitude, accuracy, heading, maxSpeed = 250, style }: SpeedometerProps) {
+export default function Speedometer({ speed, altitude, accuracy, heading, speedLimit, maxSpeed = 250, style }: SpeedometerProps) {
   const [animatedSpeed] = useState(new Animated.Value(0));
   const [animatedNeedleAngle] = useState(new Animated.Value(150)); // Start at 0 speed position
   const [animatedChargingCircle] = useState(new Animated.Value(0)); // Charging circle animation
@@ -354,6 +355,75 @@ export default function Speedometer({ speed, altitude, accuracy, heading, maxSpe
   const needleEndX = center + Math.cos(needleRadians) * needleLength;
   const needleEndY = center + Math.sin(needleRadians) * needleLength;
 
+  // Generate authentic European speed limit sign
+  const generateSpeedLimitIndicator = () => {
+    if (!speedLimit) return null;
+
+    // Positioning in bottom right corner
+    const signX = size - 40; // 40px from right edge
+    const signY = size - -10; // 60px from bottom edge
+    const signRadius = 28; // Proper size for visibility
+
+    return (
+      <G>
+        {/* Drop shadow for depth */}
+        <Circle
+          cx={signX + 3}
+          cy={signY + 3}
+          r={signRadius}
+          fill="rgba(0,0,0,0.25)"
+        />
+        
+        {/* Outer red ring (thick) */}
+        <Circle
+          cx={signX}
+          cy={signY}
+          r={signRadius}
+          fill="#E53935"
+          stroke="none"
+        />
+        
+        {/* Inner white circle */}
+        <Circle
+          cx={signX}
+          cy={signY}
+          r={signRadius - 5}
+          fill="#FFFFFF"
+          stroke="none"
+        />
+        
+        {/* Speed limit number (black, bold) */}
+        <SvgText
+          x={signX}
+          y={signY + 7}
+          fontSize="20"
+          fontWeight="900"
+          fill="#000000"
+          textAnchor="middle"
+          fontFamily="Arial, Helvetica, sans-serif"
+        >
+          {speedLimit}
+        </SvgText>
+        
+        {/* Subtle highlight for 3D effect */}
+        <Circle
+          cx={signX - 10}
+          cy={signY - 10}
+          r="4"
+          fill="rgba(255,255,255,0.6)"
+        />
+        
+        {/* Small reflection on the red ring */}
+        <Circle
+          cx={signX - 15}
+          cy={signY - 15}
+          r="2"
+          fill="rgba(255,255,255,0.4)"
+        />
+      </G>
+    );
+  };
+
   // Convert heading to cardinal direction
   const getCardinalDirection = (heading: number | null): string => {
     if (heading === null) return '---';
@@ -368,7 +438,7 @@ export default function Speedometer({ speed, altitude, accuracy, heading, maxSpe
   return (
     <View style={[styles.container, style]}>
       <View style={styles.speedometerContainer}>
-        <Svg width={size} height={size}>
+        <Svg width={size} height={size} viewBox="0 0 320 360">
           <Defs>
             <RadialGradient id="gaugeGradient" cx="50%" cy="50%" r="50%">
               <Stop offset="0%" stopColor="#2a2a2a" />
@@ -465,6 +535,8 @@ export default function Speedometer({ speed, altitude, accuracy, heading, maxSpe
           >
             km/h
           </SvgText>
+          {/* Speed limit indicator - rendered last for highest z-index */}
+          {generateSpeedLimitIndicator()}
         </Svg>
 
         {/* Digital speed display */}
@@ -559,7 +631,7 @@ const styles = StyleSheet.create({
       height: 8,
     },
     shadowOpacity: 0.4,
-    shadowRadius: 20,
+    shadowRadius: 0,
     elevation: 15,
     padding: 15,
     marginBottom: 25,

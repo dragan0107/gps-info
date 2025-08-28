@@ -12,7 +12,9 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LocationService, LocationData, PlaceInfo } from '../services/locationService';
+import { SpeedLimitService } from '../services/speedLimitService';
 import Compass from '../components/Compass';
+import SpeedLimitIndicator from '../components/SpeedLimitIndicator';
 import { useTheme } from '../contexts/ThemeContext';
 
 // Simple Signal Strength Component
@@ -111,9 +113,13 @@ export default function MainScreen() {
   const { theme, toggleTheme, isDark } = useTheme();
 
   const locationService = LocationService.getInstance();
+  const speedLimitService = SpeedLimitService.getInstance();
 
   useEffect(() => {
     initializeLocationTracking();
+    
+    // HERE API disabled - OpenStreetMap provides 100% coverage for Serbian roads
+    // speedLimitService.initializeHereAPI('YTmXMKsTPWORW5lNK8rIRwjWTd9xhBCRgZIjBfGiGpY');
     
     // Handle app state changes
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
@@ -371,6 +377,17 @@ export default function MainScreen() {
         {/* Compass */}
         <Compass style={styles.compass} />
 
+        {/* Speed Limit Card */}
+        <View style={dynamicStyles.card}>
+          <Text style={dynamicStyles.cardTitle}>
+            🚦 Speed Limit
+          </Text>
+          <SpeedLimitIndicator 
+            location={location} 
+            style={styles.speedLimitIndicator}
+          />
+        </View>
+
         {/* GPS Data Cards */}
         <View style={styles.cardsContainer}>
           {/* Coordinates Card */}
@@ -569,7 +586,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   compass: {
-    marginBottom: 32,
+    marginBottom: 20,
+  },
+  speedLimitIndicator: {
+    alignSelf: 'center',
+    backgroundColor: 'transparent',
+    shadowOpacity: 0,
+    elevation: 0,
+    padding: 0,
+    borderWidth: 0,
   },
   cardsContainer: {
     // gap replaced with marginBottom on child elements

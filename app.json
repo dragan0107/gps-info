@@ -32,8 +32,10 @@
         "FOREGROUND_SERVICE",
         "WAKE_LOCK",
         "POST_NOTIFICATIONS",
+        "INTERNET",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.INTERNET"
       ],
       "package": "com.drip016.gpsinfo",
       "adaptiveIcon": {
