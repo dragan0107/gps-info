@@ -37,6 +37,7 @@ jobs:
 
       - name: Create signing config
         run: |
+          mkdir -p $HOME/.gradle
           echo "MYAPP_RELEASE_STORE_FILE=$GITHUB_WORKSPACE/android/app/keystores/release.keystore" >> $HOME/.gradle/gradle.properties
           echo "MYAPP_RELEASE_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> $HOME/.gradle/gradle.properties
           echo "MYAPP_RELEASE_STORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> $HOME/.gradle/gradle.properties
