@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text, TouchableOpacity } from 'react-native';
+import { Text } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import MainScreen from './src/screens/MainScreen';
 import SpeedDashboard from './src/screens/SpeedDashboard';
@@ -11,7 +11,7 @@ const Tab = createBottomTabNavigator();
 
 function AppNavigator() {
   const insets = useSafeAreaInsets();
-  const { theme, toggleTheme, isDark } = useTheme();
+  const { theme, isDark } = useTheme();
   
   return (
     <Tab.Navigator
@@ -45,11 +45,6 @@ function AppNavigator() {
           tabBarIcon: ({ color, size }) => (
             <Text style={{ fontSize: size, color }}>🧭</Text>
           ),
-          headerRight: () => (
-            <TouchableOpacity onPress={toggleTheme} style={{ marginRight: 15 }}>
-              <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌙'}</Text>
-            </TouchableOpacity>
-          ),
         }}
       />
       <Tab.Screen 
@@ -58,11 +53,6 @@ function AppNavigator() {
         options={{
           tabBarIcon: ({ color, size }) => (
             <Text style={{ fontSize: size, color }}>🚗</Text>
-          ),
-          headerRight: () => (
-            <TouchableOpacity onPress={toggleTheme} style={{ marginRight: 15 }}>
-              <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌙'}</Text>
-            </TouchableOpacity>
           ),
         }}
       />
