@@ -66,7 +66,6 @@ const darkTheme: Theme = {
 
 interface ThemeContextType {
   theme: Theme;
-  toggleTheme: () => void;
   isDark: boolean;
 }
 
@@ -92,14 +91,10 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
     return () => subscription?.remove();
   }, []);
 
-  const toggleTheme = () => {
-    setIsDark(!isDark);
-  };
-
   const theme = isDark ? darkTheme : lightTheme;
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, isDark }}>
+    <ThemeContext.Provider value={{ theme, isDark }}>
       {children}
     </ThemeContext.Provider>
   );

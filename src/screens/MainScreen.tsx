@@ -110,7 +110,7 @@ export default function MainScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
-  const { theme, toggleTheme, isDark } = useTheme();
+  const { theme, isDark } = useTheme();
 
   const locationService = LocationService.getInstance();
   const speedLimitService = SpeedLimitService.getInstance();
@@ -351,10 +351,6 @@ export default function MainScreen() {
     <View style={dynamicStyles.container}>
       <StatusBar style={isDark ? "light" : "dark"} />
       
-      {/* Theme Toggle Button */}
-      <TouchableOpacity style={dynamicStyles.themeToggle} onPress={toggleTheme}>
-        <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌙'}</Text>
-      </TouchableOpacity>
       
       {/* Signal Strength in top right */}
       <View style={styles.signalPosition}>

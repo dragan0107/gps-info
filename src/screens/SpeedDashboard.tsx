@@ -31,7 +31,7 @@ export default function SpeedDashboard() {
   const [testSpeed, setTestSpeed] = useState(0);
   const [testInterval, setTestInterval] = useState<NodeJS.Timeout | null>(null);
   const insets = useSafeAreaInsets();
-  const { theme, toggleTheme, isDark } = useTheme();
+  const { theme, isDark } = useTheme();
 
   const locationService = LocationService.getInstance();
   const speedLimitService = SpeedLimitService.getInstance();
@@ -364,10 +364,6 @@ export default function SpeedDashboard() {
     <View style={dynamicStyles.container}>
       <StatusBar style={isDark ? "light" : "dark"} />
       
-      {/* Theme Toggle Button */}
-      <TouchableOpacity style={dynamicStyles.themeToggle} onPress={toggleTheme}>
-        <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌙'}</Text>
-      </TouchableOpacity>
       
       <ScrollView 
         style={dynamicStyles.scrollView}
