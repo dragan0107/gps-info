@@ -5,6 +5,7 @@ import { Text } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import MainScreen from './src/screens/MainScreen';
 import SpeedDashboard from './src/screens/SpeedDashboard';
+import LiveStreamScreen from './src/screens/LiveStreamScreen';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 
 const Tab = createBottomTabNavigator();
@@ -53,6 +54,15 @@ function AppNavigator() {
         options={{
           tabBarIcon: ({ color, size }) => (
             <Text style={{ fontSize: size, color }}>🚗</Text>
+          ),
+        }}
+      />
+      <Tab.Screen 
+        name="Live Stream" 
+        component={LiveStreamScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Text style={{ fontSize: size, color }}>📹</Text>
           ),
         }}
       />

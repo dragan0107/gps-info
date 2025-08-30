@@ -52,7 +52,8 @@
           "locationAlwaysPermission": "Allow GPS Info to use your location in the background to continue tracking."
         }
       ],
-      "expo-task-manager"
+      "expo-task-manager",
+      "expo-video"
     ],
     "extra": {
       "eas": {
